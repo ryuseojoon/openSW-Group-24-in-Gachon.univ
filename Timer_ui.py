@@ -12,10 +12,13 @@
 import cv2
 import numpy as np
 import time
+import os
+import subprocess
+import sys
 
 running = False 						#동작 점검 변수
 elapsed = 0.0							#기본 시간 변수
-last_time = time.time()						
+last_time = time.time()
 
 start_btn = ((50, 450), (245, 500))				#버튼 크기, 위치
 pause_btn = ((255, 450), (450, 500))
@@ -29,55 +32,68 @@ records = []							#기록 저장 리스트
 MAX_RECORDS = 7							#최대 기록 개수
 
 menu_open = False						#메뉴 활성화 점검
+interval_setting_btn = ((50, 120), (250, 180))			#interval setting 버튼
+
+def is_button_clicked(btn, x, y):				#버튼 클릭 확인 헬퍼 함수
+    return btn[0][0] <= x <= btn[1][0] and btn[0][1] <= y <= btn[1][1]
+
+def open_interval_setting():					#interval setting 창 열기
+    global menu_open
+    menu_open = False
+    subprocess.Popen([sys.executable, 'interval_setting.py'], cwd=os.getcwd())
 
 def on_mouse(event, x, y, flags, param):			#마우스 동작 감지시 on_mouse 함수 호출
     global running, elapsed, last_time, records, total, menu_open
-    
-    if event == cv2.EVENT_LBUTTONDOWN:
-        if start_btn[0][0] <= x <= start_btn[1][0] and start_btn[0][1] <= y <= start_btn[1][1]:
-            running = True
-            last_time = time.time()
-        elif pause_btn[0][0] <= x <= pause_btn[1][0] and pause_btn[0][1] <= y <= pause_btn[1][1]:
-            running = False
-        elif reset_btn[0][0] <= x <= reset_btn[1][0] and reset_btn[0][1] <= y <= reset_btn[1][1]:
-            running = False
-            elapsed = 0.0
-            records = []
-        elif record_btn[0][0] <= x <= record_btn[1][0] and record_btn[0][1] <= y <= record_btn[1][1] and total != 0 and running == True: 	#기록 저장
-            records.append(elapsed)
-            if len(records) > MAX_RECORDS:
-                records.pop(0)
-        elif menu_btn[0][0] <= x <= menu_btn[1][0] and menu_btn[0][1] <= y <= menu_btn[1][1]:
-            menu_open = not menu_open
+
+    if event != cv2.EVENT_LBUTTONDOWN:
+        return
+
+    # MENU 창에서의 클릭 처리
+    if menu_open and is_button_clicked(interval_setting_btn, x, y):
+        open_interval_setting()
+        return
+
+    # TIMER 창에서의 클릭 처리
+    if is_button_clicked(start_btn, x, y):
+        running = True
+        last_time = time.time()
+    elif is_button_clicked(pause_btn, x, y):
+        running = False
+    elif is_button_clicked(reset_btn, x, y):
+        running = False
+        elapsed = 0.0
+        records = []
+    elif is_button_clicked(record_btn, x, y) and total != 0 and running:
+        records.append(elapsed)
+        if len(records) > MAX_RECORDS:
+            records.pop(0)
+    elif is_button_clicked(menu_btn, x, y):
+        menu_open = not menu_open
 
 def draw_button(frame, rect, label):				#버튼 화면 출력 함수
     (x1, y1), (x2, y2) = rect
-    
     cv2.rectangle(frame, (x1, y1), (x2, y2), (60, 60, 60), -1)
     (tw, th), _ = cv2.getTextSize(label, font_timer, 0.7, 2)
     text_x = x1 + (x2 - x1 - tw) // 2
     text_y = y1 + (y2 - y1 + th) // 2
-
-    cv2.putText(frame, label, (text_x, text_y), font_timer, 0.7,
-                (255, 255, 255), 2)
+    cv2.putText(frame, label, (text_x, text_y), font_timer, 0.7, (255, 255, 255), 2)
 
 cv2.namedWindow("TIMER")
 cv2.setMouseCallback("TIMER", on_mouse)				#마우스 동작 감지
 
 while True:							#실시간 동작
     frame = np.zeros((600, 500, 3), dtype=np.uint8)		#프레임 정의
-    
+
     if running:							#동작 확인
         now = time.time()
         elapsed += now - last_time
         last_time = now
-    
+
     total = elapsed						#시간 변수 설정 초,분,미리초
     minute = int(total // 60)
     second = total % 60
     timer_text = f"{minute:02d}:{int(second):02d}"
     frac_part = f".{int((second - int(second)) * 100):02d}"
-
 
     cv2.putText(frame, timer_text, (115, 200), font_timer, 3, (0, 255, 0), 5)
     cv2.putText(frame, frac_part, (380, 200), font_timer, 1, (0,255,0), 2)
@@ -105,8 +121,9 @@ while True:							#실시간 동작
     if menu_open:
         menu_frame = np.zeros((400, 300, 3), dtype=np.uint8)
         cv2.putText(menu_frame, "MENU", (40, 80), font_timer, 1, (0, 255, 255), 2)
-
+        draw_button(menu_frame, interval_setting_btn, "Interval Setting")
         cv2.imshow("MENU", menu_frame)
+        cv2.setMouseCallback("MENU", on_mouse)
     else:
         try:
             cv2.destroyWindow("MENU")
