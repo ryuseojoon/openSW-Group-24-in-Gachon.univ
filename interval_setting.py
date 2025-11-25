@@ -111,7 +111,7 @@ def start_timer_mode():
     mode = "TIMER"
     interval_phase = "PREP"
     current_rep = 0
-    elapsed = 0.0
+    elapsed = prep_time  # 카운트다운: 설정 시간에서 시작
     last_time = time.time()
     timer_running = False
 
@@ -122,26 +122,26 @@ def reset_to_setting():
     timer_running = False
 
 def handle_interval_transition():
-    """인터벌 단계 전환"""
+    """인터벌 단계 전환 (카운트다운)"""
     global interval_phase, elapsed, current_rep, last_time, timer_running
 
-    if interval_phase == "PREP" and elapsed >= prep_time:
+    if interval_phase == "PREP" and elapsed <= 0:
         timer_running = False  # 단계 종료 시 일시정지
         interval_phase = "EXERCISE"
-        elapsed = 0.0
+        elapsed = exercise_time
         current_rep = 1
         last_time = time.time()
-    elif interval_phase == "EXERCISE" and elapsed >= exercise_time:
+    elif interval_phase == "EXERCISE" and elapsed <= 0:
         timer_running = False  # 단계 종료 시 일시정지
         interval_phase = "REST"
-        elapsed = 0.0
+        elapsed = rest_time
         last_time = time.time()
-    elif interval_phase == "REST" and elapsed >= rest_time:
+    elif interval_phase == "REST" and elapsed <= 0:
         timer_running = False  # 단계 종료 시 일시정지
         if current_rep < reps:
             interval_phase = "EXERCISE"
             current_rep += 1
-            elapsed = 0.0
+            elapsed = exercise_time
             last_time = time.time()
         else:
             # 모든 세트 완료
@@ -218,10 +218,10 @@ running = True
 while running:
     frame = np.zeros((600, 500, 3), dtype=np.uint8)
 
-    # TIMER 모드 처리
+    # TIMER 모드 처리 (카운트다운)
     if timer_running:
         now = time.time()
-        elapsed += now - last_time
+        elapsed -= now - last_time  # 카운트다운: 시간 감소
         last_time = now
         handle_interval_transition()
 
@@ -236,8 +236,8 @@ while running:
             rep_text = f"Rep: {current_rep}/{reps}"
             cv2.putText(frame, rep_text, (170, 140), font_timer, 0.8, (255, 255, 255), 2)
 
-        # 타이머 표시
-        total = elapsed
+        # 타이머 표시 (카운트다운)
+        total = max(0, elapsed)  # 음수 방지
         minute = int(total // 60)
         second = total % 60
         timer_text = f"{minute:02d}:{int(second):02d}"
