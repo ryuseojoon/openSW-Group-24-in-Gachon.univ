@@ -7,8 +7,6 @@
     
     "이 코드는 타이머 ui 코드입니다."
  """   
-    
-    
 import cv2
 import numpy as np
 import time
@@ -33,6 +31,8 @@ MAX_RECORDS = 7							#최대 기록 개수
 
 menu_open = False						#메뉴 활성화 점검
 interval_setting_btn = ((50, 120), (250, 180))			#interval setting 버튼
+recent_record_btn = ((50, 200), (250, 260))			#recent_record 버튼
+alarm_btn = ((50, 280), (250, 340))				#alarm 버튼	
 
 def is_button_clicked(btn, x, y):				#버튼 클릭 확인 헬퍼 함수
     return btn[0][0] <= x <= btn[1][0] and btn[0][1] <= y <= btn[1][1]
@@ -42,6 +42,16 @@ def open_interval_setting():					#interval setting 창 열기
     menu_open = False
     subprocess.Popen([sys.executable, 'interval_setting.py'], cwd=os.getcwd())
 
+def open_recent_record():
+    global menu_open
+    menu_open = False
+    subprocess.Popen([sys.executable, 'recent_record.py'], cwd=os.getcwd())
+
+def open_alarm():
+    global menu_open
+    menu_open = False
+    subprocess.Popen([sys.executable, 'alarm.py'], cwd=os.getcwd())
+
 def on_mouse(event, x, y, flags, param):			#마우스 동작 감지시 on_mouse 함수 호출
     global running, elapsed, last_time, records, total, menu_open
 
@@ -49,10 +59,17 @@ def on_mouse(event, x, y, flags, param):			#마우스 동작 감지시 on_mouse 
         return
 
     # MENU 창에서의 클릭 처리
-    if menu_open and is_button_clicked(interval_setting_btn, x, y):
-        open_interval_setting()
-        return
-
+    if menu_open:
+        if is_button_clicked(interval_setting_btn, x, y):
+            open_interval_setting()
+            return
+        elif is_button_clicked(recent_record_btn, x, y):
+            open_recent_record()
+            return
+        elif is_button_clicked(alarm_btn, x, y):
+            open_alarm()
+            return
+        
     # TIMER 창에서의 클릭 처리
     if is_button_clicked(start_btn, x, y):
         running = True
@@ -122,6 +139,8 @@ while True:							#실시간 동작
         menu_frame = np.zeros((400, 300, 3), dtype=np.uint8)
         cv2.putText(menu_frame, "MENU", (40, 80), font_timer, 1, (0, 255, 255), 2)
         draw_button(menu_frame, interval_setting_btn, "Interval Setting")
+        draw_button(menu_frame, recent_record_btn, "recent record")
+        draw_button(menu_frame, alarm_btn, "alarm")
         cv2.imshow("MENU", menu_frame)
         cv2.setMouseCallback("MENU", on_mouse)
     else:
@@ -135,4 +154,3 @@ while True:							#실시간 동작
         break
 
 cv2.destroyAllWindows()
-
