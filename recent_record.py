@@ -1,9 +1,11 @@
 #러닝 페이스 기록 기능
 import cv2
+import os					#수정 11.28 23:31 류서준
 import numpy as np
 from dataclasses import dataclass
 from datetime import datetime
 from typing import List, Optional
+
 
 @dataclass
 class RunRecord:
@@ -21,6 +23,8 @@ class RunningPaceTracker:
 
     def __init__(self):
         self.records: List[RunRecord] = []
+        self.filepath = "running_record.csv"		#파일 저장 경로  			수정 11.28 23:31 류서준
+        self.load_from_file()				#창 열면 파일 불러오기
 
     # 문자열 초 변환
     @staticmethod
@@ -64,7 +68,37 @@ class RunningPaceTracker:
                     pct = abs(diff)/prev.pace_per_km_sec*100
                     rec.pace_change_percent = pct
                     rec.pace_change_direction = "up" if diff > 0 else "down"
+   
+    def save_to_file(self):						#파일에 쓰기 		추가 11.28 23:31 류서준
+        with open(self.filepath, "w", encoding="utf-8") as f:
+            f.write("distance_km,total_time_sec,pace_per_km_sec,timestamp\n")
+            for r in self.records:
+                line = f"{r.distance_km},{r.total_time_sec},{r.pace_per_km_sec},{r.timestamp.strftime('%Y-%m-%d %H:%M:%S')}\n"
+                f.write(line)
 
+    def load_from_file(self):						#파일 읽기 		추가 11.28 23:31 류서준	
+        if not os.path.exists(self.filepath):
+            return
+        try:
+            with open(self.filepath, "r", encoding="utf-8") as f:
+                header = f.readline()
+                for line in f:
+                    line = line.strip()
+                    if not line:
+                        continue
+                    distance_str, total_sec_str, pace_str, ts_str = line.split(",")
+                    distance = float(distance_str)
+                    total_sec = int(total_sec_str)
+                    pace = float(pace_str)
+                    ts = self.parse_timestamp(ts_str)
+
+                    rec = RunRecord(distance, total_sec, pace, ts)
+                    self.records.append(rec)
+            self.records.sort(key=lambda r: r.timestamp)
+            self._recompute_changes()
+        except Exception:
+            self.records = []
+            
     # 기록 추가
     def add_record(self, dist: float, time_str: str, ts: Optional[str]):
         total_sec = self.parse_time_to_seconds(time_str)
@@ -75,12 +109,14 @@ class RunningPaceTracker:
         self.records.append(rec)
         self.records.sort(key=lambda r: r.timestamp)
         self._recompute_changes()
+        self.save_to_file()
 
     # 특정 기록 삭제
     def delete_record(self, idx: int):
         if 0 <= idx < len(self.records):
             self.records.pop(idx)
             self._recompute_changes()
+            self.save_to_file()
 
 
 # 텍스트
